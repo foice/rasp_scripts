@@ -16,6 +16,7 @@ stock[0]="EURCHF=X"
 stock[1]="EURUSD=X"
 stock[2]="CHFUSD=X"
 
+archive="archive"
 
 get_key(){
   echo `cat key.conf`
@@ -62,7 +63,7 @@ output_file_stub=`pwd -L`"/history_"
 
 if [ ! -f key.conf ]; then
   echo "file key.conf is missing"
-  exit 
+  exit
 fi
   # ************************ #
   # MAIN LOOP, INFINITE LOOP #
@@ -101,15 +102,16 @@ while [[ 1 -gt 0 ]]; do
             	echo -n $(date) >> $output_file;  #no new line -n
               echo -n "  " >> $output_file;
               #echo -n ${stock[$c]} >> $output_file;
-              echo -n ", " >> $output_file; curl -s `echo ${s/stock_symbol/${stock[$c]}}` >> $output_file;
-              if ([ `check_oneday_old lastwrite` == 1 ] || [ ! -f lastwrite ]); then
+              echo -n ", " >> $output_file; curl -s $(echo ${s/stock_symbol/${stock[$c]}}) >> $output_file;
+              if ([ $( check_oneday_old lastwrite_"${stock[$c]}" ) == 1 ] || [ ! -f lastwrite_"${stock[$c]}" ]); then
                 if [ $time -gt $nycloses ]; then
                   echo "NY closed at "$nycloses". Writing today's rates."
-                  echo $(date -u) >> lastwrite
+                  echo $(date -u) >> lastwrite_"${stock[$c]}"
                   if [ ! -d ./$archive ]; then
                     mkdir -v $archive;
                   fi
-                  mv -v $output_file $archive"/"$output_file"_"`date +%F`
+                  mv -v $output_file $output_file"_"$(date +%F)
+                  mv -v $output_file"_"$(date +%F) ./$archive
                 fi
               fi
         done
