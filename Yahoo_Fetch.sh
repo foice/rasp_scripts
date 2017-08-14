@@ -14,7 +14,8 @@
 # specify which stocks you want to monitor here
 stock[0]="EURCHF=X"
 stock[1]="EURUSD=X"
-stock[2]="CHFUSD=X"
+#stock[2]="CHFUSD=X"
+stock[2]="USDCHF=X"
 
 archive="archive"
 
@@ -35,9 +36,12 @@ shuffle() {
 }
 
 check_oneday_old() {
-  if [[ $(find "$1" -mtime +1 -print) ]]; then
-    #echo "File $1 exists and is older than 1 day"
-    echo 1
+  if [ -f "$1" ]; then
+    if [[ $(find "$1" -mtime +1 -print) ]]; then
+    #if [[ $(find "$1" -mtime +1 -print) ]]; then
+      #echo "File $1 exists and is older than 1 day"
+      echo 1
+    fi
   fi
   echo 0
 }
@@ -94,7 +98,6 @@ while [[ 1 -gt 0 ]]; do
 
         n=${#stock[@]}
         n=$((n-1))
-      # TODO add a break at a given time of the day and move the previous file to archive
         for (( c=0; c<=n; c++ ))
         do
         	#echo -n ${stock[$c]}; echo -n ":"; curl -s `echo "${s/stock_symbol/${stock[$c]}}"`
@@ -103,6 +106,12 @@ while [[ 1 -gt 0 ]]; do
               echo -n "  " >> $output_file;
               #echo -n ${stock[$c]} >> $output_file;
               echo -n ", " >> $output_file; curl -s $(echo ${s/stock_symbol/${stock[$c]}}) >> $output_file;
+              if [ $RANDOM -gt $((32767*95/100)) ]; then
+                action="YahooData_Dropbox_Upload.sh upload $output_file ${output_file##*/}"
+                #echo $action
+                $action >> dblog
+              fi
+
               if ([ $( check_oneday_old lastwrite_"${stock[$c]}" ) == 1 ] || [ ! -f lastwrite_"${stock[$c]}" ]); then
                 if [ $time -gt $nycloses ]; then
                   echo "NY closed at "$nycloses". Writing today's rates."
@@ -110,8 +119,11 @@ while [[ 1 -gt 0 ]]; do
                   if [ ! -d ./$archive ]; then
                     mkdir -v $archive;
                   fi
-                  mv -v $output_file $output_file"_"$(date +%F)
-                  mv -v $output_file"_"$(date +%F) ./$archive
+                  final_file_name=$output_file"_"$(date +%F)
+                  mv -v $output_file $final_file_name
+                  # TODO upload to archive in DB
+                  YahooData_Dropbox_Upload.sh upload $final_file_name "$archive""/""${final_file_name##*/}"
+                  mv -v $final_file_name ./$archive
                 fi
               fi
         done
