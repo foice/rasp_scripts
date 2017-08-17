@@ -47,7 +47,7 @@ check_oneday_old() {
 }
 
 check_dst_sydney() {
-  if ([ `check_oneday_old sydney.xml` == 1 ] || [ ! -f sydney.xml ]); then
+  if ( [[ `check_oneday_old sydney.xml` == 1 ]] || [ ! -f sydney.xml ] ); then
     key=`get_key`
     wget -O sydney.xml "http://api.timezonedb.com/v2/get-time-zone?key="$key"&format=xml&by=zone&zone=Australia/Sydney"
   fi
@@ -55,7 +55,7 @@ check_dst_sydney() {
 }
 
 check_dst_ny() {
-  if ([ `check_oneday_old ny.xml` == 1 ] || [ ! -f ny.xml ]); then
+  if ( [[ `check_oneday_old ny.xml` == 1 ]] || [ ! -f ny.xml ] ); then
     key=`get_key`
     wget -O ny.xml "http://api.timezonedb.com/v2/get-time-zone?key="$key"&format=xml&by=zone&zone=America/New_York"
   fi
@@ -112,7 +112,7 @@ while [[ 1 -gt 0 ]]; do
                 $action >> dblog
               fi
 
-              if ([ $( check_oneday_old lastwrite_"${stock[$c]}" ) == 1 ] || [ ! -f lastwrite_"${stock[$c]}" ]); then
+              if ( [[ $( check_oneday_old lastwrite_"${stock[$c]}" ) == 1 ]] || [ ! -f lastwrite_"${stock[$c]}" ] ); then
                 if [ $time -gt $nycloses ]; then
                   echo "NY closed at "$nycloses". Writing today's rates."
                   echo $(date -u) >> lastwrite_"${stock[$c]}"
