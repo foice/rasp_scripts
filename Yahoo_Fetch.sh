@@ -1,20 +1,11 @@
 #!/bin/bash
 #
-# yahoo stock info plugin
-# much simpler than stock plugin, no API key required
-# by http://srinivas.gs
+# forked from a yahoo stock info plugin by http://srinivas.gs by >Srinivas Gorur-Shandilya
 #
-# <bitbar.title>Stock price</bitbar.title>
-# <bitbar.version>v1.0</bitbar.version>
-# <bitbar.author>Srinivas Gorur-Shandilya</bitbar.author>
-# <bitbar.author.github>sg-s</bitbar.author.github>
-# <bitbar.desc>Customizable stock price display </bitbar.desc>
-
 
 # specify which stocks you want to monitor here
 stock[0]="EURCHF=X"
 stock[1]="EURUSD=X"
-#stock[2]="CHFUSD=X"
 stock[2]="USDCHF=X"
 
 archive="archive"
@@ -41,9 +32,12 @@ check_oneday_old() {
     #if [[ $(find "$1" -mtime +1 -print) ]]; then
       #echo "File $1 exists and is older than 1 day"
       echo 1
+    else
+      echo 0 
     fi
-  fi
-  echo 0
+  else 
+    echo 0
+  fi 
 }
 
 check_dst_sydney() {
@@ -87,10 +81,11 @@ while [[ 1 -gt 0 ]]; do
   nycloses=$((2200-100*$dst_ny))
 
   #echo "Sidney opens at "$sidneyopens
-  #echo "NY closes at "$nycloses
+  #echo "NY closes at "$nycloses 
+  #echo "will write files right before "$(($nycloses+1)) 
   if [[ $weekday != "6" ]]; then # is not saturday
     if  ! ([ $weekday == "0" ] && [ $time -lt $sidneyopens ]) ; then #is not sunday before Sydney opens at 9:00 PM GMT (October to April)
-      if  ! ([ $weekday == "5" ] && [ $time -gt $nycloses ]) ; then #is not friday after New York closes at 10:00 PM GMT (April to October)
+      if  ! ([ $weekday == "5" ] && [ $time -gt $(($nycloses+1)) ]) ; then #is not friday after New York closes at 10:00 PM GMT (April to October). Adding one minute to allow write of archive on Friday.
         shuffle
 
         # we get stock quotes from Yahoo
@@ -105,12 +100,16 @@ while [[ 1 -gt 0 ]]; do
             	echo -n $(date) >> $output_file;  #no new line -n
               echo -n "  " >> $output_file;
               #echo -n ${stock[$c]} >> $output_file;
+		# TODO add a proxy either in curl with -x, --proxy <[protocol://][user:password@]proxyhost[:port]> 
+		# or export http_proxy
               echo -n ", " >> $output_file; curl -s $(echo ${s/stock_symbol/${stock[$c]}}) >> $output_file;
               if [ $RANDOM -gt $((32767*95/100)) ]; then
                 action="YahooData_Dropbox_Upload.sh upload $output_file ${output_file##*/}"
                 #echo $action
                 $action >> dblog
               fi
+
+	      # echo $( check_oneday_old lastwrite_"${stock[$c]}" )	
 
               if ( [[ $( check_oneday_old lastwrite_"${stock[$c]}" ) == 1 ]] || [ ! -f lastwrite_"${stock[$c]}" ] ); then
                 if [ $time -gt $nycloses ]; then
