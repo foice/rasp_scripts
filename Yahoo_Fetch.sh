@@ -2,13 +2,18 @@
 #
 # forked from a yahoo stock info plugin by http://srinivas.gs by >Srinivas Gorur-Shandilya
 #
-
+debug=false
 # specify which stocks you want to monitor here
 stock[0]="EURCHF=X"
 stock[1]="EURUSD=X"
 stock[2]="USDCHF=X"
 
 archive="archive"
+
+
+debug_print(){
+   if [ $debug ]; then echo $1; fi 
+}
 
 get_key(){
   echo `cat key.conf`
@@ -60,7 +65,19 @@ get_entry() {
  proxylen=$(cat "$1" | wc -l)	
  proxyid=$[ ( $RANDOM % $proxylen ) + 1 ]
  proxy=`awk -v r=$proxyid ' NR==r {print} ' "$1"`
+ #if it is a proxy try to ping it before considering it valid
  echo $proxy
+}
+
+check_quote(){
+	words=`echo "$1" | wc -w`
+	#echo $1 has $words words >> log 
+	re='^[0-9]+([.][0-9]+)?$'
+	if ([[ $words -eq 1 ]] &&  [[ "$1" =~ $re ]]); then
+		echo 1
+	else 
+		echo 0
+	fi
 }
 
 # log to disk
@@ -102,19 +119,21 @@ while [[ 1 -gt 0 ]]; do
         n=$((n-1))
         for (( c=0; c<=n; c++ ))
         do
-        	#echo -n ${stock[$c]}; echo -n ":"; curl -s `echo "${s/stock_symbol/${stock[$c]}}"`
               output_file=$output_file_stub"${stock[$c]}"
-            	echo -n $(date) >> $output_file;  #no new line -n
+	      ### GET QUOTE
+	      quote=''
+	      while [[ $(check_quote "$quote") == 0 ]]; do	
+	      	proxy=$(get_entry proxies.list); #debug_print $proxy
+	     	useragent=$(get_entry user_agent.list); #debug_print "$useragent"
+              	quote=$(curl -m 15 -x $proxy -A "$useragent" -s $(echo ${s/stock_symbol/${stock[$c]}}) ); #debug_print "quote: $quote ."
+	      done
+	      debug_print "final quote: $quote `date -u`"
+              ### WRITE QUOTE
+	      echo -n $(date) >> $output_file;  #no new line -n
               echo -n "  " >> $output_file;
-              #echo -n ${stock[$c]} >> $output_file;
-	      # TODO add a proxy either in curl with -x, --proxy $proxy -A $useragent 
-              # or export http_proxy
-	      proxy=$(get_entry proxy.list)
-	      useragent=$(get_entry user_agent.list)
-	      echo $proxy
-	      echo $useragent
-              echo -n ", " >> $output_file; curl -s $(echo ${s/stock_symbol/${stock[$c]}}) >> $output_file;
-              if [ $RANDOM -gt $((32767*95/100)) ]; then
+              echo -n ", " >> $output_file; echo $quote >> $output_file; 
+              ### UPLOAD TO DB
+	      if [ $RANDOM -gt $((32767*95/100)) ]; then
                 action="YahooData_Dropbox_Upload.sh upload $output_file ${output_file##*/}"
                 #echo $action
                 $action >> dblog
@@ -131,7 +150,6 @@ while [[ 1 -gt 0 ]]; do
                   fi
                   final_file_name=$output_file"_"$(date +%F)
                   mv -v $output_file $final_file_name
-                  # TODO upload to archive in DB
                   YahooData_Dropbox_Upload.sh upload $final_file_name "$archive""/""${final_file_name##*/}"
                   mv -v $final_file_name ./$archive
                 fi
