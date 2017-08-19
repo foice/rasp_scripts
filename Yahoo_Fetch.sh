@@ -56,6 +56,13 @@ check_dst_ny() {
   echo `less ny.xml | grep -o \<dst\>.*\</dst\> | grep -o \>.*\< | cut -c 2`
 }
 
+get_entry() {
+ proxylen=$(cat "$1" | wc -l)	
+ proxyid=$[ ( $RANDOM % $proxylen ) + 1 ]
+ proxy=`awk -v r=$proxyid ' NR==r {print} ' "$1"`
+ echo $proxy
+}
+
 # log to disk
 output_file_stub=`pwd -L`"/history_"
 
@@ -100,8 +107,12 @@ while [[ 1 -gt 0 ]]; do
             	echo -n $(date) >> $output_file;  #no new line -n
               echo -n "  " >> $output_file;
               #echo -n ${stock[$c]} >> $output_file;
-		# TODO add a proxy either in curl with -x, --proxy <[protocol://][user:password@]proxyhost[:port]> 
-		# or export http_proxy
+	      # TODO add a proxy either in curl with -x, --proxy $proxy -A $useragent 
+              # or export http_proxy
+	      proxy=$(get_entry proxy.list)
+	      useragent=$(get_entry user_agent.list)
+	      echo $proxy
+	      echo $useragent
               echo -n ", " >> $output_file; curl -s $(echo ${s/stock_symbol/${stock[$c]}}) >> $output_file;
               if [ $RANDOM -gt $((32767*95/100)) ]; then
                 action="YahooData_Dropbox_Upload.sh upload $output_file ${output_file##*/}"
