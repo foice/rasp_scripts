@@ -213,5 +213,5 @@ while [[ 1 -gt 0 ]]; do
       fi
     fi
   fi
-  sleep 5;
+  sleep 1;
 done
