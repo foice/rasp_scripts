@@ -120,11 +120,13 @@ get_quote(){	# get symbol $1 from from Yahoo Finance
 	debug_print "Attempting  $_url" quotelog
 	
 	_quote=''
+	_tried_tor=0
 	while [[ $(check_quote "$_quote") == 0 ]]; do
 			
-		if [ $havetorsock ]; then
+		if ( [ $havetorsock ] && [ $_tried_tor -lt 3 ] ); then
 			debug_print "routed on tor at $(date -u)" routelog
 			_quote=$(torsocks curl -m 15 -s "$_url" ); #debug_print "quote: $quote ."
+			_tried_tor=$(($_tried_tor + 1))
 		else
 			_proxy=$(get_entry proxies.list); #debug_print $proxy
 			_useragent=$(get_entry user_agent.list); #debug_print "$useragent"
@@ -173,7 +175,7 @@ while [[ 1 -gt 0 ]]; do
   #echo "Sidney opens at "$sidneyopens
   #echo "NY closes at "$nycloses 
   #echo "will write files right before "$(($nycloses+1)) 
-  if [[ $weekday != "6" ]]; then # is not saturday
+  if [[ $weekday == "6" ]]; then # is not saturday
     if  ! ([ $weekday == "0" ] && [ $time -lt $sidneyopens ]) ; then #is not sunday before Sydney opens at 9:00 PM GMT (October to April)
       if  ! ([ $weekday == "5" ] && [ $time -gt $(($nycloses+1)) ]) ; then #is not friday after New York closes at 10:00 PM GMT (April to October). Adding one minute to allow write of archive on Friday.
         shuffle
