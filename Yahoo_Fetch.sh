@@ -121,17 +121,19 @@ get_quote(){	# get symbol $1 from from Yahoo Finance
 	
 	_quote=''
 	_tried_tor=0
+	_tried_proxy=0
 	while [[ $(check_quote "$_quote") == 0 ]]; do
 			
-		if ( [ $havetorsock ] && [ $_tried_tor -lt 3 ] ); then
-			debug_print "routed on tor at $(date -u)" routelog
+		if ( [ $havetorsock -eq 1 ] && [ $_tried_tor -lt 3 ] ); then
+			debug_print "routed on tor at $(date -u). $_tried_tor attempt" routelog
 			_quote=$(torsocks curl -m 15 -s "$_url" ); #debug_print "quote: $quote ."
 			_tried_tor=$(($_tried_tor + 1))
 		else
 			_proxy=$(get_entry proxies.list); #debug_print $proxy
 			_useragent=$(get_entry user_agent.list); #debug_print "$useragent"
 			_quote=$(curl -m 15 -x "$_proxy" -A "$_useragent" -s "$_url" ); #debug_print "quote: $quote ."
-			debug_print "routed on proxy $_proxy at $(date -u)" routelog
+			debug_print "routed on proxy $_proxy at $(date -u) after $_tried_proxy failed proxy attempts and $_tried_tor tor failed attempts" routelog
+			_tried_proxy=$(($_tried_proxy + 1))
 		fi
 		done
 	echo "$_quote"
@@ -151,6 +153,7 @@ write_quote(){  # write value $1 to file $2
 
 
 havetorsock=`have_torsocks`
+#havetorsock=0
 if [ ! -f key.conf ]; then
   echo "file key.conf is missing"
   exit
@@ -175,8 +178,9 @@ while [[ 1 -gt 0 ]]; do
   #echo "Sidney opens at "$sidneyopens
   #echo "NY closes at "$nycloses 
   #echo "will write files right before "$(($nycloses+1)) 
-  if [[ $weekday == "6" ]]; then # is not saturday
-    if  ! ([ $weekday == "0" ] && [ $time -lt $sidneyopens ]) ; then #is not sunday before Sydney opens at 9:00 PM GMT (October to April)
+  if [[ $weekday != "6" ]]; then # is not saturday
+    if !  ([ $weekday == "0" ] && [ $time -lt $sidneyopens ]) ; then #is not sunday before Sydney opens at 9:00 PM GMT (October to April)
+    #if   ([ $weekday == "0" ] && [ $time -lt $sidneyopens ]) ; then #testing, on sunday before Sydney opens at 9:00 PM GMT (October to April)
       if  ! ([ $weekday == "5" ] && [ $time -gt $(($nycloses+1)) ]) ; then #is not friday after New York closes at 10:00 PM GMT (April to October). Adding one minute to allow write of archive on Friday.
         shuffle
 
