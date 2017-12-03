@@ -10,18 +10,18 @@ stock[2]="USDCHF=X"
 
 
 archive="archive" # folder in which to put the prvious days logs
-output_file_stub=`pwd -L`"/history_" # beginning part of the filename to save the daily log; beware it has its full path at the beginning! 
+output_file_stub=`pwd -L`"/history_" # beginning part of the filename to save the daily log; beware it has its full path at the beginning!
 
 ########################################################################
 ######################### function declarations ########################
 ########################################################################
 
 debug_print(){
-   if [ "$debug" = true ]; then 
+   if [ "$debug" = true ]; then
    	if [[ ! "$2" == '' ]]; then
-   		if [ $debug ]; then echo $1 >> $2 ; fi 
+   		if [ $debug ]; then echo $1 >> $2 ; fi
    	else
-		echo $1;  
+		echo $1;
 	fi
    fi
 }
@@ -35,7 +35,7 @@ have_torsocks(){ # check if the system has torsocks installed
  torpath=`which torsocks`
  if [ $torpath != '' ]; then
   echo 1
- else 
+ else
   echo 0
  fi
 }
@@ -59,11 +59,11 @@ check_oneday_old() { # check if the first argument is a file more than 1 day old
       #echo "File $1 exists and is older than 1 day"
       echo 1
     else
-      echo 0 
+      echo 0
     fi
-  else 
+  else
     echo 0
-  fi 
+  fi
 }
 
 check_dst_sydney() {
@@ -85,45 +85,45 @@ check_dst_ny() {
 get_entry() { # get a random entry from $1 and if it contains : then check it be an open port on that host
  active=0
  while [ $active -eq 0 ]; do
-	proxylen=$(cat "$1" | wc -l)	
+	proxylen=$(cat "$1" | wc -l)
 	proxyid=$[ ( $RANDOM % $proxylen ) + 1 ]
   	proxy=`awk -v r=$proxyid ' NR==r {print} ' "$1"`
   	#if it is a proxy try to ping it before considering it valid
   	ip=$(echo $proxy | cut -f1 -d":")
   	port=$(echo $proxy | cut -f2 -d":")
-	debug_print $ip":"$port nmap.log; 
+	debug_print $ip":"$port nmap.log;
   	if [[ "$port" != "$proxy" ]]; then  # a second field existed and cut retuned it in $port
    		active=`nmap -p $port $ip  | tail -1 | cut -f2 -d "(" | cut -f1 -d" "`
-  	else 
-   		active=1 
+  	else
+   		active=1
   	fi
-  done 	
+  done
   echo $proxy
 }
 
 check_quote(){ # check that is a valid float number
 	words=`echo "$1" | wc -w`
-	#echo $1 has $words words >> log 
+	#echo $1 has $words words >> log
 	re='^[0-9]+([.][0-9]+)?$'
 	if ([[ $words -eq 1 ]] &&  [[ "$1" =~ $re ]]); then
 		echo 1
-	else 
+	else
 		echo 0
 	fi
 }
 
 
-get_quote(){	# get symbol $1 from from Yahoo Finance
+get_quote_from_yahoo(){	# get symbol $1 from from Yahoo Finance
 	s='https://download.finance.yahoo.com/d/quotes.csv?s=stock_symbol&f=l1'
 	symbol="$1"
-	_url=$( echo ${s/stock_symbol/$symbol} ) 
+	_url=$( echo ${s/stock_symbol/$symbol} )
 	debug_print "Attempting  $_url" quotelog
-	
+
 	_quote=''
 	_tried_tor=0
 	_tried_proxy=0
 	while [[ $(check_quote "$_quote") == 0 ]]; do
-			
+
 		if ( [ $havetorsock -eq 1 ] && [ $_tried_tor -lt 3 ] ); then
 			debug_print "routed on tor at $(date -u). $_tried_tor attempt" routelog
 			_quote=$(torsocks curl -m 15 -s "$_url" ); #debug_print "quote: $quote ."
@@ -139,12 +139,50 @@ get_quote(){	# get symbol $1 from from Yahoo Finance
 	echo "$_quote"
 }
 
-write_quote(){  # write value $1 to file $2 		
+get_quote(){	# get symbol $1 from from Bloomberg
+
+	s='https://download.finance.yahoo.com/d/quotes.csv?s=stock_symbol&f=l1'
+	symbol="$1"
+	_url=$( echo ${s/stock_symbol/$symbol} )
+	debug_print "Attempting  $_url" quotelog
+
+	_quote=''
+	_tried_tor=0
+	_tried_proxy=0
+	while [[ $(check_quote "$_quote") == 0 ]]; do
+
+		if ( [ $havetorsock -eq 1 ] && [ $_tried_tor -lt 3 ] ); then
+			debug_print "routed on tor at $(date -u). $_tried_tor attempt" routelog
+      if [ $sourcesite == 'yahoo' ]; then
+    		_quote=$(torsocks curl -m 15 -s "$_url" ); #debug_print "quote: $quote ."
+      fi
+      if [ $sourcesite == 'bloomberg' ]; then
+        _quote=$(torsocks ./BloomScraper.py -s "$symbol")
+  			_tried_tor=$(($_tried_tor + 1))
+      fi
+		else
+			_proxy=$(get_entry proxies.list); #debug_print $proxy
+			_useragent=$(get_entry user_agent.list); #debug_print "$useragent"
+      if [ $sourcesite == 'yahoo' ]; then
+  			_quote=$(curl -m 15 -x "$_proxy" -A "$_useragent" -s "$_url" ); #debug_print "quote: $quote ."
+  			debug_print "routed on proxy $_proxy at $(date -u) after $_tried_proxy failed proxy attempts and $_tried_tor tor failed attempts" routelog
+  			_tried_proxy=$(($_tried_proxy + 1))
+      fi
+      if [ $sourcesite == 'bloomberg' ]; then
+        _quote=$(./BloomScraper.py -s "$symbol")
+      fi
+		fi
+		done
+	echo "$_quote"
+}
+
+
+write_quote(){  # write value $1 to file $2
 	_quote="$1"
 	_output_file="$2"
 	echo -n $(date) >> "$_output_file";  #no new line -n
 	echo -n "  " >> "$_output_file";
-	echo -n ", " >> "$_output_file"; echo "$_quote" >> "$_output_file"; 
+	echo -n ", " >> "$_output_file"; echo "$_quote" >> "$_output_file";
 }
 
 ########################################################################
@@ -153,6 +191,11 @@ write_quote(){  # write value $1 to file $2
 
 
 havetorsock=`have_torsocks`
+if [ ! -f source.conf ]; then
+  echo "file source.conf is missing"
+  exit
+fi
+sourcesite=`cat source.conf`
 #havetorsock=0
 if [ ! -f key.conf ]; then
   echo "file key.conf is missing"
@@ -176,8 +219,8 @@ while [[ 1 -gt 0 ]]; do
   nycloses=$((2200-100*$dst_ny))
 
   #echo "Sidney opens at "$sidneyopens
-  #echo "NY closes at "$nycloses 
-  #echo "will write files right before "$(($nycloses+1)) 
+  #echo "NY closes at "$nycloses
+  #echo "will write files right before "$(($nycloses+1))
   if [[ $weekday != "6" ]]; then # is not saturday
     if !  ([ $weekday == "0" ] && [ $time -lt $sidneyopens ]) ; then #is not sunday before Sydney opens at 9:00 PM GMT (October to April)
     #if   ([ $weekday == "0" ] && [ $time -lt $sidneyopens ]) ; then #testing, on sunday before Sydney opens at 9:00 PM GMT (October to April)
@@ -200,7 +243,7 @@ while [[ 1 -gt 0 ]]; do
                 $action >> dblog
               fi
 
-	      # echo $( check_oneday_old lastwrite_"${stock[$c]}" )	
+	      # echo $( check_oneday_old lastwrite_"${stock[$c]}" )
 
               if ( [[ $( check_oneday_old lastwrite_"${stock[$c]}" ) == 1 ]] || [ ! -f lastwrite_"${stock[$c]}" ] ); then
                 if [ $time -gt $nycloses ]; then
@@ -219,5 +262,5 @@ while [[ 1 -gt 0 ]]; do
       fi
     fi
   fi
-  sleep 1;
+  sleep 600;
 done
