@@ -157,7 +157,7 @@ get_quote(){	# get symbol $1 from from Bloomberg
     		_quote=$(torsocks curl -m 15 -s "$_url" ); #debug_print "quote: $quote ."
       fi
       if [ $sourcesite == 'bloomberg' ]; then
-        _quote=$(torsocks ./BloomScraper.py -s "$symbol")
+        _quote=$(torsocks BloomScraper.py -s "$symbol")
   			_tried_tor=$(($_tried_tor + 1))
       fi
 		else
@@ -169,7 +169,7 @@ get_quote(){	# get symbol $1 from from Bloomberg
   			_tried_proxy=$(($_tried_proxy + 1))
       fi
       if [ $sourcesite == 'bloomberg' ]; then
-        _quote=$(./BloomScraper.py -s "$symbol")
+        _quote=$(BloomScraper.py -s "$symbol")
       fi
 		fi
 		done
