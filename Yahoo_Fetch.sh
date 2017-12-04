@@ -3,11 +3,16 @@
 # forked from a yahoo stock info plugin by http://srinivas.gs by >Srinivas Gorur-Shandilya
 #
 debug=false
-# specify which stocks you want to monitor here
-stock[0]="EURCHF=X"
-stock[1]="EURUSD=X"
-stock[2]="USDCHF=X"
 
+source $HOME/scriptbelt/bashutilities.sh
+# specify which stocks you want to monitor here
+#stock[0]="EURCHF=X"
+#stock[1]="EURUSD=X"
+#stock[2]="USDCHF=X"
+
+readarray stock < ./stocks.conf
+
+echo $RED"${stock[*]} will be retrieved and stored"$COL_RESET
 
 archive="archive" # folder in which to put the prvious days logs
 output_file_stub=`pwd -L`"/history_" # beginning part of the filename to save the daily log; beware it has its full path at the beginning!
@@ -157,7 +162,8 @@ get_quote(){	# get symbol $1 from from Bloomberg
     		_quote=$(torsocks curl -m 15 -s "$_url" ); #debug_print "quote: $quote ."
       fi
       if [ $sourcesite == 'bloomberg' ]; then
-        _quote=$(torsocks BloomScraper.py -s "$symbol")
+        bloom_symbol=$(echo "$symbol" | cut -f1 -d"=")
+        _quote=$(torsocks BloomScraper.py -s "$bloom_symbol")
   			_tried_tor=$(($_tried_tor + 1))
       fi
 		else
@@ -169,7 +175,8 @@ get_quote(){	# get symbol $1 from from Bloomberg
   			_tried_proxy=$(($_tried_proxy + 1))
       fi
       if [ $sourcesite == 'bloomberg' ]; then
-        _quote=$(BloomScraper.py -s "$symbol")
+        bloom_symbol=$(echo "$symbol" | cut -f1 -d"=")
+        _quote=$(BloomScraper.py -s "$bloom_symbol")
       fi
 		fi
 		done
