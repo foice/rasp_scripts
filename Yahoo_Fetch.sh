@@ -10,7 +10,7 @@ debug=false
 #stock[2]="USDCHF=X"
 
 readarray -t stock < ./stocks.conf
-
+sleeptime=600
 echo "${stock[*]} will be retrieved and stored"
 
 echo ${stock[0]}
@@ -249,7 +249,7 @@ while [[ 1 -gt 0 ]]; do
               ### WRITE QUOTE
 	      write_quote "$quote" "$output_file"; debug_print "$quote -> $output_file"
               ### UPLOAD TO DB
-	      if [ $RANDOM -gt $((32767*95/100)) ]; then
+	      if [ $RANDOM -gt $((32767*(95-95*$sleeptime/600)/100)) ]; then
                 action="YahooData_Dropbox_Upload.sh upload $output_file ${output_file##*/}"; debug_print "$action"
                 $action >> dblog
               fi
@@ -273,5 +273,5 @@ while [[ 1 -gt 0 ]]; do
       fi
     fi
   fi
-  sleep 600;
+  sleep $sleeptime;
 done
