@@ -4,7 +4,6 @@
 #
 debug=false
 
-source $HOME/scriptbelt/bashutilities.sh
 # specify which stocks you want to monitor here
 #stock[0]="EURCHF=X"
 #stock[1]="EURUSD=X"
@@ -12,7 +11,12 @@ source $HOME/scriptbelt/bashutilities.sh
 
 readarray stock < ./stocks.conf
 
-echo $RED"${stock[*]} will be retrieved and stored"$COL_RESET
+echo "${stock[*]} will be retrieved and stored"
+
+echo stock[0]
+echo stock[1]
+echo stock[2]
+
 
 archive="archive" # folder in which to put the prvious days logs
 output_file_stub=`pwd -L`"/history_" # beginning part of the filename to save the daily log; beware it has its full path at the beginning!
