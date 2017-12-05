@@ -12,9 +12,9 @@ debug=false
 readarray -t stock < ./stocks.conf
 echo "${stock[*]} will be retrieved and stored"
 
-echo ${stock[0]}
-echo ${stock[1]}
-echo ${stock[2]}
+#echo ${stock[0]}
+#echo ${stock[1]}
+#echo ${stock[2]}
 
 
 archive="archive" # folder in which to put the prvious days logs
