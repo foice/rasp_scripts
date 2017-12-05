@@ -10,7 +10,6 @@ debug=false
 #stock[2]="USDCHF=X"
 
 readarray -t stock < ./stocks.conf
-sleeptime=600
 echo "${stock[*]} will be retrieved and stored"
 
 echo ${stock[0]}
@@ -206,7 +205,14 @@ if [ ! -f source.conf ]; then
   echo "file source.conf is missing"
   exit
 fi
+sleeptime=$(cat sleeptime.conf)
+
+if [ ! -f sleeptime.conf ]; then
+  echo "file sleeptime.conf is missing"
+  exit
+fi
 sourcesite=`cat source.conf`
+
 #havetorsock=0
 if [ ! -f key.conf ]; then
   echo "file key.conf is missing"
