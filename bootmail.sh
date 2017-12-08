@@ -1,5 +1,7 @@
-sleep 180
+#!/bin/bash
+#sleep 180
 
-line="Subject: Pi has Rebooted on $(date -u) "
-echo "$line"  | msmtp -- foice.news@gmail.com
-echi "$line" >> ~/reboots.log 
+line="Subject: Pi has Rebooted on $(date -u) [bot]"
+echo "$line"  | /usr/bin/msmtp --file=/home/pi/.msmtprc -- foice.news@gmail.com
+echo "$line" >> /home/pi/reboots.log 
+sleep 30
