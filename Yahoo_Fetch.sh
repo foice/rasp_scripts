@@ -93,7 +93,7 @@ check_dst_ny() {
 
 get_entry() { # get a random entry from $1 and if it contains : then check it be an open port on that host
  active=0
- while [ $active -eq 0 ]; do
+ while [ "$active" == "0" ]; do
 	proxylen=$(cat "$1" | wc -l)
 	proxyid=$[ ( $RANDOM % $proxylen ) + 1 ]
   	proxy=`awk -v r=$proxyid ' NR==r {print} ' "$1"`
