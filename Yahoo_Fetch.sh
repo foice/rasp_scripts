@@ -3,6 +3,7 @@
 # forked from a yahoo stock info plugin by http://srinivas.gs by >Srinivas Gorur-Shandilya
 #
 debug=false
+source ~/b
 
 # specify which stocks you want to monitor here
 #stock[0]="EURCHF=X"
