@@ -11,7 +11,7 @@ source ~/b
 #stock[2]="USDCHF=X"
 
 readarray -t stock < ./stocks.conf
-echo "${stock[*]} will be retrieved and stored"
+echo "${stock[*]} will be retrieved and stored starting from $(date -u)"
 
 #echo ${stock[0]}
 #echo ${stock[1]}
