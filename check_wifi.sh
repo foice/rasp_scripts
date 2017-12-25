@@ -8,6 +8,7 @@ alias ifup='/sbin/ifup'
 alias ifdown='/sbin/ifdown'
 alias ifconfig='/sbin/ifconfig'
 #=================================================================
+#http://www.pihome.eu/2017/10/19/auto-reconnecting-wifi-on-raspberry/
 echo "  _____    _   _    _                            "
 echo " |  __ \  (_) | |  | |                           "
 echo " | |__) |  _  | |__| |   ___    _ __ ___     ___ "
