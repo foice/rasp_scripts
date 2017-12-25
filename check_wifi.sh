@@ -1,4 +1,7 @@
 #!/bin/bash
+# **************** INSTALLATION *******************
+# crontab -e
+# */5 * * * * sudo sh /home/pi/rasp_scripts/check_wifi.sh > /dev/null 2>&1
 #=================================================================
 # Script Variables Settings
 clear
