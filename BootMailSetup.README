@@ -1,0 +1,5 @@
+put it in /lib/systemd/system/bootmail.service
+sudo systemctl status  bootmail.service
+sudo systemctl start  bootmail.service
+sudo systemctl stop  bootmail.service
+sudo systemctl restart  bootmail.service
