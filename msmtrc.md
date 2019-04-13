@@ -9,3 +9,6 @@ auth on
 user "username1970"       
 password "password123"       
 logfile ~/.msmtp.log
+# for encrypted passwords see
+# https://wiki.archlinux.org/index.php/Msmtp#Password_management
+
