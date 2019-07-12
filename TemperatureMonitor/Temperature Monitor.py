@@ -1,11 +1,10 @@
 
 # coding: utf-8
 
-# In[64]:
+# In[1]:
 
 
 import pandas as pd
-import matplotlib.pyplot as plt
 from bokeh.io import show, output_file, save
 from bokeh.layouts import column
 from bokeh.models import ColumnDataSource, RangeTool
@@ -14,41 +13,41 @@ import time;  # This is required to include time module.
 import datetime
 
 
-# In[15]:
+# In[2]:
 
 
 df=pd.read_csv('temp.csv')
 
 
-# In[22]:
+# In[3]:
 
 
 df.columns=['Epoch','Temperature','Humidity']
 
 
-# In[37]:
+# In[4]:
 
 
 df['Date']=(pd.to_datetime(df['Epoch'],unit='s')) 
 
 
-# In[60]:
+# In[5]:
 
 
 dt_now = datetime.datetime.now()
 yesterday = dt_now - datetime.timedelta(days=1)
 
 
-# In[61]:
+# In[6]:
 
 
 data = df[['Date','Temperature']][df['Date']>yesterday]
 
 
-# In[66]:
+# In[14]:
 
 
-p = figure(plot_height=300, plot_width=800, tools="xpan", toolbar_location=None,
+p = figure(plot_height=300, plot_width=800, tools="xpan,reset,save,hover", toolbar_location='left',
            x_axis_type="datetime", x_axis_location="above",
            background_fill_color="#efefef", x_range=(data['Date'].min(), data['Date'].max()))
 
