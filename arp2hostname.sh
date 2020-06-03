@@ -1,3 +1,4 @@
+#!/bin/bash
 # IP address       HW type     Flags       HW address            Mask     Device
 # 192.168.0.34     0x1         0x2         2c:f4:32:77:96:b0     *        eth0
 cat /proc/net/arp | grep 0x2 > ~arp.dat
