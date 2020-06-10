@@ -23,10 +23,10 @@ for hostName in arp["hostname"].unique():
 		IP=IP[0]
 		mac=arp[ arp["hostname"]==hostName ]['mac'].unique()
 		mac=mac[0]
-		long_hostname=hosts[ hosts["mac"]==mac ]['long_hostname'].unique()
+		long_hostname=hosts[ hosts["mac"]==mac ]['long_hostname'].unique()[0]
 		print('IP: '+IP," (",mac,":"+long_hostname+")")
 		url="http://"+IP+"/temp.csv"
-		file_name= hostName+"_"+IP+".csv"
+		file_name=long_hostname+"_"+IP+".csv"
 		print('URL:',url)
 		print('file:',file_name)
 		try:
