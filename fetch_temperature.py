@@ -9,7 +9,7 @@ from urllib.error import HTTPError, URLError
 import socket
 from termcolor import colored
 
-os.system("arp2hostname.sh > .arp ")
+os.system("/home/pi/rasp_scripts/arp2hostname.sh > .arp ")
 arp=pd.read_csv('.arp',sep='\s+',names=["ip","mac","hostname"])
 hosts=pd.read_csv('~/known_macs',sep='\s+',names=["1","2","3","mac","long_hostname"])
 # print(arp)
