@@ -30,7 +30,7 @@ for hostName in arp["hostname"].unique():
 		print('URL:',url)
 		print('file:',file_name)
 		try:
-			with urllib.request.urlopen(url,timeout=100) as response, open(file_name, 'wb') as out_file:
+			with urllib.request.urlopen(url,timeout=300) as response, open(file_name, 'wb') as out_file:
 				data = response.read() # a `bytes` object
 				out_file.write(data)
 		except ConnectionResetError:
