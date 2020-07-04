@@ -12,7 +12,7 @@ import socket
 from termcolor import colored
 from pathlib import Path
 
-
+download_timeout=300
 
 thisIsGateway=False
 my_file = Path("/var/lib/dnsmasq/dnsmasq.leases")
@@ -22,7 +22,7 @@ if my_file.is_file():
 
 def url2filename(url,file_name):
 	try:
-		with urllib.request.urlopen(url,timeout=100) as response, open(file_name, 'wb') as out_file:
+		with urllib.request.urlopen(url,timeout=download_timeout) as response, open(file_name, 'wb') as out_file:
 			data = response.read() # a `bytes` object
 			out_file.write(data)
 	except ConnectionResetError:
