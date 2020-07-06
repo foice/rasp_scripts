@@ -23,13 +23,13 @@ for i in $tempfile ; do
    b=`stat -c %s "$i"`
    if [ $b -ge 800 ] ; then
 
-      NAME=`date +%Y-%m-%d_%H-%M-%S`
+      NAME=`date +%Y-%m-%d_%H-%M-%S`.mp3
       TIME=`date +%H:%M:%S`
-      FILENAME=./Recordings/$NAME.mp3
+      FILENAME=./Recordings/$NAME
       #FILEWWW=Recordings/$NAME.mp3
       mv $tempfile $FILENAME
       cd Recordings
-      dropbox_uploader.sh upload $NAME.mp3 $NAME.mp3 && rm -v $NAME.mp3
+      dropbox_uploader.sh upload $NAME $FILENAME && rm -v $NAME
       cd ..
       rm -rf $tempfile
 
