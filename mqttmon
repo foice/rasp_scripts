@@ -1,0 +1,698 @@
+#!/usr/bin/env python3
+
+# This file is part of mqttmon.
+#
+# mqttmon is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, see <http://www.gnu.org/licenses/>.
+#
+# Copyright (C) 2015 Dominik Kriegner <dominik.kriegner@gmail.com>
+
+import argparse
+import collections
+import configparser
+import copy
+import curses
+import curses.panel
+import itertools
+import time
+import sys
+
+import paho.mqtt.client as paho
+
+
+class TopicList(dict):
+    """
+    class extending a Python dictionary to hold the information about different
+    topics so far received from the broker. For every topic a asociated
+    MessageList is created. The topics are sorted in a Tree structure for
+    later processing.
+    """
+    def __init__(self, name, path=None):
+        super().__init__()
+        self.name = '/'.join((path, name)) if path else name
+        self.msglist = MessageList(name)
+
+    def addSubTopic(self, topicName, path):
+        """
+        add new Topic to the TopicList
+
+        Parameter
+        ---------
+         topicName: name of the topic to be added to the list
+        """
+        super().__setitem__(topicName, TopicList(topicName, path))
+
+    def addMessage(self, topic, msg):
+        """
+        add new Message to a certain topic.
+
+        Parameter
+        ---------
+         topic: topic to which the message should be added
+         msg:   Message object to be added to the list of messages
+        """
+        self.msglist.append(msg)
+        if topic:
+            lt = topic.split('/', 1)
+            if lt[0] not in super().keys():
+                self.addSubTopic(lt[0], self.name)
+            if len(lt) > 1:
+                super().__getitem__(lt[0]).addMessage(lt[1], msg)
+            else:
+                super().__getitem__(lt[0]).addMessage(None, msg)
+
+    def getMessages(self, mode):
+        """
+        return different types of message lists
+        """
+        if mode == 'topics':
+            return self.listTopics()
+        elif mode == 'inplace':
+            lm = self.lastMessage()
+            if lm is None:
+                return []
+            else:
+                return self.lastMessage()
+        elif mode == 'continuous' or 'topic':
+            return self.msglist.lines
+        else:
+            raise Exception('unknown Message list mode')
+
+    def lastMessage(self):
+        """
+        method to return a list of last messages per topic.
+
+        Every entry in the returned list includes a tuple of (intentation,
+        linetext, curses_attribute) which can be used to display the list of
+        messages on the screen
+        """
+        if len(self) == 0:
+            if len(self.msglist) > 0:
+                return self.msglist[-1].listLines()
+            else:
+                return None
+        else:
+            ret = []
+            for t in super().keys():
+                lines = super().__getitem__(t).lastMessage()
+                if lines:
+                    ret += lines
+            return ret
+
+    def listTopics(self):
+        """
+        method to return a list of lines describing the topics.
+
+        Every entry in the returned list includes a tuple of (intentation,
+        linetext, curses_attribute) which can be used to display the list of
+        topics on the screen
+        """
+        ret = []
+        ret.append((self, 0, self.name, curses.A_BOLD))
+        mlist = self.msglist
+        if len(self) > 0:
+            desc = '{} subtopic{}, '.format(len(self),
+                                            's' if len(self) > 0 else '')
+        else:
+            desc = ''
+        desc += '{} msgs'.format(len(mlist))
+        if len(mlist) > 0:
+            desc += ', last update {}'.format(mlist[-1].timestr)
+        ret.append((self, 1, desc, curses.A_NORMAL))
+        for topic in sorted(self):
+            ret += super().__getitem__(topic).listTopics()
+        return ret
+
+
+class MessageList(collections.deque):
+    """
+    List of messages. This uses collections.deque
+    and provides textlines to display the message on the screen.
+    """
+
+    def __init__(self, name, maxlen=512):
+        """
+        initialize the message list
+
+        Parameter
+        ---------
+         name:  name of the Messagelist
+        """
+        self.name = name
+        self.lines = collections.deque(maxlen=maxlen*2)
+        super().__init__(maxlen=maxlen)
+
+    def append(self, msg):
+        """
+        append a msg to the list.
+
+        Parameter
+        ---------
+         msg:   Message object to be added to the list
+        """
+        self.lines += msg.listLines()
+        super().append(msg)
+
+
+class Message(object):
+    """
+    Message object holding all the information about a message. In addition to
+    the message itself this are the topic under which the message was received
+    and a timestamp (when the message was received)
+
+    Methods are provided to help to show the message on the screen.
+    """
+    _timefmt = "%H:%M:%S"
+    _longtimefmt = _timefmt + "%d/%m %Y"
+
+    def __init__(self, msg, topic, retain, qos):
+        """
+        initialize the Message by setting its content and topic.
+
+        Parameter
+        ---------
+         msg:   Message content
+         topic: topic of the message
+        """
+        self.timestamp = time.time()
+        self.timestr = time.strftime(self._timefmt,
+                                     time.localtime(self.timestamp))
+        self.topic = topic
+        self.message = msg
+        self.retain = retain
+        self.qos = qos
+
+    def listLines(self):
+        """
+        method to return a list of lines describing the message.
+
+        Every entry in the returned list includes a tuple of (intentation,
+        linetext, curses_attribute) which can be used to display the message on
+        the screen
+        """
+        ret = [(self, 0, self.topic, curses.A_BOLD), ]
+        try:
+            for line in self.message.decode('utf-8').splitlines():
+                ret.append((self, 1, line, curses.A_NORMAL))
+        except UnicodeDecodeError:
+            ret.append((self, 1, 'msg not decodable to UTF-8',
+                        curses.A_UNDERLINE))
+        return ret
+
+    def listDetails(self):
+        """
+        returns details about the message.
+
+        Every entry in the returned list includes a tuple of (intentation,
+        linetext, curses_attribute) which can be used to display the message on
+        the screen
+        """
+        ret = self.listLines()
+        ret.append((self, 0, '----', curses.A_BOLD))
+        tstamp = time.strftime(self._timefmt, time.localtime(self.timestamp))
+        ret.append((self, 1, 'message received at {}'.format(tstamp),
+                    curses.A_NORMAL))
+        ret.append((self, 1, 'retain flag: {}; QOS: {}'.format(self.retain,
+                                                               self.qos),
+                    curses.A_NORMAL))
+        return ret
+
+
+class Communicator(object):
+    """
+    class to handle the communication with the MQTT Broker
+    """
+    def __init__(self, address, port, user=None, passwd=None, userdata=None):
+        """
+        initialization of the connection to the MQTT Broker
+
+        Parameter
+        ---------
+         address:   address of the broker
+         port:      TCP port used by the Broker
+         user:      username used for the authentication (optional)
+         passwd:    password used for the authentication (optional)
+         userdata:  data object forwarded to all the callbacks
+        """
+        self.topics = []
+        self.client = paho.Client('mqttstatus')
+        if user:
+            self.client.username_pw_set(user, password=passwd)
+        self.client.on_connect = self.on_connect
+        self.client.on_message = self.on_message
+        self.client.on_subscribe = self.on_subscribe
+        self.client.user_data_set(userdata)
+        self.client.connect(address, port, 60)
+
+    def on_connect(self, client, userdata, flags, rc):
+        """
+        callback upon successfull connection to the broker
+
+        Parameter
+        ---------
+         client:    the client instance for this callback
+         userdata:  the private user data as set by the initialization
+         flags:     response flags sent by the broker
+         rc:        the connection result
+        """
+        if 'StatusWindow' in userdata:
+            cursesTUI.setStatusMessage(userdata['StatusWindow'],
+                                       'Connected with result code '+str(rc))
+
+    def subscribe(self, *args):
+        """
+        method to subscribe to certain topics of the broker
+
+        Parameter
+        ---------
+         *args: topics to subscribe to. If none are given a subscription to '#'
+                is performed.
+        """
+        if len(args) == 0:
+            self.client.subscribe("#")
+            self.topics.append('#')
+        else:
+            for t in args:
+                self.client.subscribe(t)
+                self.topics.append(t)
+
+    def on_subscribe(self, client, userdata, mid, qos):
+        """
+        callback upon arrival of a subscribe confirmation from the broker.
+
+        Parameter
+        ---------
+         client:    the client instance for this callback
+         userdata:  the private user data as set by the initialization.
+         mid:       message id
+         qos:       qos code from the broker
+        """
+        if 'StatusWindow' in userdata:
+            t = ' '.join(self.topics)
+            cursesTUI.setStatusMessage(
+                userdata['StatusWindow'],
+                'successfully subscribed topic: {}'.format(t))
+
+    def on_message(self, client, userdata, msg):
+        """
+        callback upon arrival of a message from the broker.
+        The new message is added to the corresponding MessageLists in the
+        userdata.
+
+        Parameter
+        ---------
+         client:    the client instance for this callback
+         userdata:  the private user data as set by the initialization.
+         msg:       an instance of MQTTMessage. This is a class with members
+                    topic, payload, qos, retain.
+        """
+        # add message to the corresponding message list
+        m = Message(msg.payload, msg.topic, msg.retain, msg.qos)
+        userdata['TopicList'].addMessage(msg.topic, m)
+        # increase message counter
+        userdata['nmsg'] += 1
+        # show Message on screen
+        if 'StatusWindow' in userdata:
+            cursesTUI.setStatusMessage(
+                userdata['StatusWindow'],
+                'nmsg: {:4d};'.format(userdata['nmsg']), start=1, end=12)
+            cursesTUI.setStatusMessage(
+                userdata['StatusWindow'],
+                'New msg in {topic} at {time}'.format(topic=m.topic,
+                                                      time=m.timestr))
+
+
+class cursesTUI(object):
+    """
+    The main class of mqttmon. Handles the TUI setup using curses and the
+    initialization of the broker connection. After initialization a loop is
+    started which handles the user input and update of the display.
+    """
+    statwidth = 2  # height of the status window area (minimum 2)
+
+    def __init__(self, stdscr, args):
+        """
+        initialization of the windows and setting up of the communication
+
+        Parameter
+        ---------
+         stdscr:    standard screen as supplied by curses.wrapper. used as main
+                    window.
+        """
+        self.scroll = 0  # integer constant to save the scroll offset
+        self.ispaused = False  # update mode paused flag
+        self.updateMode = 'inplace'  # can be 'continuous': as recv msg
+                                     #        'inplace': latest msg/topic
+                                     #        'topics': overview of topics
+                                     #        'topic': msges from single topic
+                                     #        'msg': details about message
+        self.lines = []  # line buffer for shown message list
+        self.cursory = 0  # cursor position to select messages
+
+        self.mainWindow = stdscr
+        self.initMain()
+        self.topicList = TopicList(args.topic)
+        self.userdict = {'TopicList': self.topicList,
+                         'MainWindow': self.mainWindow,
+                         'MessageWindow': self.msgWindow,
+                         'StatusWindow': self.statusWindow,
+                         'nmsg': 0}
+
+        # start communication
+        self.com = Communicator(args.brokeraddr, args.port, args.username,
+                                args.passwd, self.userdict)
+        self.com.subscribe(args.topic)
+        self.mainLoop(args.timeout)
+
+    def initMain(self):
+        """
+        initialize main curses windows.
+        """
+        self.width_y, self.width_x = self.mainWindow.getmaxyx()
+
+        # message window
+        self.msgWindow = curses.newwin(self.width_y - self.statwidth,
+                                       self.width_x)
+        self.clearMsgWindow()
+        wy, wx = self.msgWindow.getmaxyx()
+        self.textheight = wy - 2
+        self.contentwidth = wx - 2
+
+        # status window
+        self.statusWindow = curses.newwin(self.statwidth, self.width_x,
+                                          self.width_y - self.statwidth, 0)
+        self.redrawStatus()
+
+    def clearMsgWindow(self, title='Messages'):
+        """
+        clears the message window and redraws its border.
+        """
+        self.msgWindow.erase()
+        self.msgWindow.border(0, 0, 0, 0)
+        self.msgWindow.addstr(0, 2, ' {} '.format(title))
+        self.msgWindow.move(1, 1)
+        self.scroll = 0
+        self.ispaused = False
+        self.lines = []
+
+    def redrawStatus(self):
+        """
+        redraws the status window keyboard shortcuts
+        """
+        h, w = self.statusWindow.getmaxyx()
+        if w < 58:
+            raise Exception("Window is too narrow, needs at least 58 width!")
+        self.statusWindow.addstr(1, 1, 'q-quit;')
+        self.statusWindow.addstr(1, 9, 'msg: ')
+        if self.updateMode == 'continuous':
+            self.statusWindow.addstr(1, 14, 'i-inplace')
+            self.statusWindow.addstr(1, 24, 'c-continuous', curses.A_BOLD)
+            self.statusWindow.addstr(1, 37, 't-topics;')
+        elif self.updateMode == 'inplace':
+            self.statusWindow.addstr(1, 14, 'i-inplace', curses.A_BOLD)
+            self.statusWindow.addstr(1, 24, 'c-continuous')
+            self.statusWindow.addstr(1, 37, 't-topics;')
+        else:
+            self.statusWindow.addstr(1, 14, 'i-inplace')
+            self.statusWindow.addstr(1, 24, 'c-continuous')
+            self.statusWindow.addstr(1, 37, 't-topics', curses.A_BOLD)
+            self.statusWindow.addstr(1, 44, ';')
+        if self.ispaused:
+            self.statusWindow.addstr(1, 47, 'p-(un)pause', curses.A_BOLD)
+        else:
+            self.statusWindow.addstr(1, 47, 'p-(un)pause')
+
+    def resize(self):
+        """
+        function to handle a resizing of the terminal window
+        """
+        old_width_y, old_width_x = (self.width_y, self.width_x)
+        self.width_y, self.width_x = self.mainWindow.getmaxyx()
+        self.msgWindow.resize(self.width_y - self.statwidth, self.width_x)
+        self.resizeMsgWindow(old_width_y, old_width_x)
+        self.statusWindow.resize(self.statwidth, self.width_x)
+        self.statusWindow.mvwin(self.width_y - self.statwidth, 0)
+        self.update()
+
+    def resizeMsgWindow(self, old_width_y, old_width_x):
+        """
+        function handling a resizing of the message window. this avoids a full
+        redraw of the Message list and adds/removes only the necesarry content
+
+        Parameter
+        ---------
+         old_width_y, old_width_x: previous size of the main window
+        """
+        old_textheight, old_contentwidth = (self.textheight, self.contentwidth)
+        wy, wx = self.msgWindow.getmaxyx()
+        self.textheight = wy - 2
+        self.contentwidth = wx - 2
+        # vertical change
+        step = 1 if (self.width_y - old_width_y) > 0 else -1
+        for cl in range(old_width_y+step, self.width_y+step, step):
+            if cl > old_width_y:
+                self.msgWindow.move(old_textheight+1, 1)
+                self.msgWindow.insertln()
+            elif self.textheight > len(self.lines):
+                self.msgWindow.move(self.textheight+1, 1)
+                self.msgWindow.deleteln()
+            else:
+                self.msgWindow.move(1, 1)
+                self.msgWindow.deleteln()
+        # horizontal change
+        step = 1 if (self.width_x - old_width_x) > 0 else -1
+        for cc in range(old_width_x+step, self.width_x+step, step):
+            if cc > old_width_x:
+                for py in range(1, 1+self.textheight):
+                    self.msgWindow.insch(py, old_contentwidth+1, ' ')
+            else:
+                for py in range(1, 1+self.textheight):
+                    self.msgWindow.delch(py, self.contentwidth+1)
+        # fix border
+        self.msgWindow.border(0, 0, 0, 0)
+
+    def mainLoop(self, timeout):
+        """
+        main loop of the program. checks for new messages or keyboard input
+        and updates the display. For the input checking a timeout (ms) is
+        used.
+        """
+        self.msgWindow.timeout(timeout)
+        curses.curs_set(2)
+        while True:
+            # call the communication loop of the MQTT client
+            try:
+                self.com.client.loop(timeout=timeout/1000/10)
+            except UnicodeDecodeError:
+                self.setStatusMessage(self.statusWindow,
+                                      'UnicodeDecodeError in MQTT client')
+            # check key-events
+            c = self.msgWindow.getch()
+            if c == ord('q'):
+                sys.exit()
+            elif c == ord('c'):
+                self.clearMsgWindow()
+                self.updateMode = 'continuous'
+            elif c == ord('i'):
+                self.clearMsgWindow()
+                self.updateMode = 'inplace'
+            elif c == ord('t'):
+                self.clearMsgWindow(title='Topic list')
+                self.updateMode = 'topics'
+            elif c == ord('p'):
+                self.ispaused = not self.ispaused
+            elif c in (curses.KEY_UP, 65):
+                self.cursory -= 1
+            elif c in (curses.KEY_DOWN, 66):
+                self.cursory += 1
+            elif c in (curses.KEY_ENTER, 10):
+                if isinstance(self.shownobjects[self.cursory], Message):
+                    self.clearMsgWindow(title='Message details')
+                    self.updateMode = 'msg'
+                elif isinstance(self.shownobjects[self.cursory], TopicList):
+                    self.clearMsgWindow(title='Topic messages')
+                    self.updateMode = 'topic'
+            elif c == curses.KEY_RESIZE:
+                self.resize()
+            self.redrawStatus()
+            self.updateMsgList()
+            self.update()
+
+    def updateMsgList(self):
+        """
+        the message list will be updated depending on the current update mode
+        """
+        self.msgWindow.move(1, 1)
+        window = self.msgWindow
+        # create message list
+        if not self.ispaused:
+            if self.updateMode in ('topic', 'msg') and self.lines == []:
+                o = self.shownobjects[self.cursory]
+                if isinstance(o, Message):
+                    self.lines = o.listDetails()
+                elif isinstance(o, TopicList):
+                    self.lines = o.getMessages(self.updateMode)
+            elif self.updateMode in ('inplace', 'topics', 'continuous'):
+                self.lines = self.topicList.getMessages(self.updateMode)
+        # handle scrolling
+        if len(self.lines) < self.textheight:
+            self.scroll = 0
+        nlines = min(self.textheight, len(self.lines))
+        if self.cursory >= nlines:
+            self.scroll -= self.cursory - nlines + 1
+            if self.scroll < 0:
+                self.scroll = 0
+            self.cursory = nlines - 1 if nlines > 0 else 0
+        elif self.cursory < 0:
+            self.scroll += -self.cursory
+            self.cursory = 0
+        if self.scroll > abs(len(self.lines) - self.textheight):
+            self.scroll = len(self.lines) - self.textheight
+        lstart = max(0, len(self.lines) - self.textheight - self.scroll)
+        scrollinfo = ' {}-{}/{} '.format(
+            lstart,
+            lstart + min(len(self.lines), self.textheight),
+            len(self.lines))
+        self.msgWindow.addstr(self.textheight+1,
+                              self.contentwidth - len(scrollinfo),
+                              scrollinfo)
+        # output message list
+        self.msgWindow.move(1, 1)
+        shownlines = itertools.islice(self.lines, lstart, lstart+nlines)
+        self.shownobjects = []
+        for c, (o, i, l, a) in enumerate(shownlines):
+            self.shownobjects.append(o)
+            self.addLineStr(window, l, self.contentwidth-i, 1+i, attr=a)
+        # show cursor position
+        self.msgWindow.move(self.cursory+1, 1)
+
+    def update(self):
+        """
+        redraws the screen content after a string change
+        """
+        self.statusWindow.refresh()
+        self.msgWindow.refresh()
+
+    @staticmethod
+    def setStatusMessage(window, string, start=14, end=-1,
+                         attr=curses.A_NORMAL):
+        """
+        Method setting the status message in the status bar. Here the arrival
+        of a new message/connection to the broker/subscription to a new
+        topic... should be shown.
+
+        Parameter
+        ---------
+         window:    curses window where the string should be shown
+         string:    message to be shown
+         start:     intentation of the beginning of the message
+         end:       end position of the message (-1 = line end)
+         attr:      curses attribute for the text
+        """
+        wy, wx = window.getmaxyx()
+        window.move(0, start)
+        if end == -1:
+            end = wx - 2
+            window.clrtoeol()
+        for line in string.splitlines():
+            window.addnstr(line, end-start, attr)
+
+    @staticmethod
+    def addMultiLineStr(window, string, start=1, end=-1, attr=curses.A_NORMAL):
+        """
+        Method adding a string (possibly containing multiple line breaks) to a
+        curses window.
+
+        Parameter
+        ---------
+         window:    curses window where the string should be shown
+         string:    message to be shown
+         start:     intentation of the beginning of the message. Every line
+                    will be intented by this amount
+         end:       end position of the message (-1 = line end)
+         attr:      curses attribute for the text
+        """
+        y, x = window.getyx()
+        wy, wx = window.getmaxyx()
+        for line in string.splitlines():
+            cursesTUI.addLineStr(window, line, wy-start+end, start, attr=attr)
+
+    @staticmethod
+    def addLineStr(window, line, nchar, start=1, attr=curses.A_NORMAL):
+        """
+        Method adding a string (without line breaks) to a curses window.
+
+        Parameter
+        ---------
+         window:    curses window where the string should be shown
+         string:    message to be shown
+         start:     intentation of the beginning of the message. Every line
+                    will be intented by this amount
+         end:       end position of the message (-1 = line end)
+         attr:      curses attribute for the text
+        """
+        y, x = window.getyx()
+        window.move(y, 1)
+        window.addstr(' '*(start-1), curses.A_NORMAL)
+        window.move(y, start)
+        window.addnstr(line, nchar, attr)
+        # clear the rest of the line without destroying the window border
+        y, x = window.getyx()
+        # this complicated treatment here is necessary for special character
+        # functionality
+        window.addstr(' '*(nchar-(x-start)), curses.A_NORMAL)
+        y, x = window.getyx()
+        window.move(y+1, start)
+
+
+if __name__ == '__main__':
+    conf_parser = argparse.ArgumentParser(add_help=False)
+    conf_parser.add_argument('-c', '--config', metavar='conffile', type=str,
+                             default='', help='specify config file')
+    args, remaining_argv = conf_parser.parse_known_args()
+    defaults = {
+        'port': 1883,
+        'passwd': None,
+        'username': None,
+        'topic': '#',
+        'timeout': 100,
+        'brokeraddr': None
+        }
+    if args.config:
+        config = configparser.SafeConfigParser()
+        config.read([args.config])
+        for item, val in config.items("Defaults"):
+            defaults[item] = val
+
+    parser = argparse.ArgumentParser(parents=[conf_parser],
+                                     description='curses TUI for MQTT message'
+                                     ' monitoring')
+    parser.set_defaults(**defaults)
+    parser.add_argument('-p', '--port', metavar='port', type=int,
+                        help='TCP port for the MQTT broker')
+    parser.add_argument('-u', '--user', dest='username', metavar='username',
+                        type=str, help='user name for the broker connection'
+                        ' (empty if not needed)')
+    parser.add_argument('-P', '--pass', metavar='passwd', dest='passwd',
+                        type=str, help='password for the broker connection'
+                        ' (empty if not needed)')
+    parser.add_argument('-t', '--topic', metavar='topic', type=str,
+                        help='topics to subscribe')
+    parser.add_argument('brokeraddr', metavar='brokeraddress', type=str,
+                        help='Address of the MQTT broker', nargs='?')
+    args = parser.parse_args(remaining_argv)
+    if not args.brokeraddr:
+        print('Broker-address or config file must be specified!')
+        sys.exit()
+
+    curses.wrapper(cursesTUI, args)

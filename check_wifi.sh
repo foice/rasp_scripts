@@ -5,11 +5,32 @@
 #=================================================================
 # Script Variables Settings
 clear
+#DEFAULTS
 wlan='wlan0'
 gateway='192.168.8.1'
 alias ifup='/sbin/ifup'
 alias ifdown='/sbin/ifdown'
 alias ifconfig='/sbin/ifconfig'
+strategy="reconnect"
+# CHECK IF INPUTS WERE GIVEN
+#
+while getopts ":g:i:s:" opt; do
+  case $opt in
+    g) gateway="$OPTARG"
+    ;;
+    i) wlan="$OPTARG"
+    ;;
+    s) strategy="$OPTARG"
+    ;;
+    \?) echo "Invalid option -$OPTARG" >&2
+    ;;
+  esac
+done
+
+printf "Argument wlan is %s\n" "$wlan"
+printf "Argument strategy is %s\n" "$strategy"
+printf "Argument gateway is %s\n" "$gateway"
+
 #=================================================================
 #http://www.pihome.eu/2017/10/19/auto-reconnecting-wifi-on-raspberry/
 echo "  _____    _   _    _                            "
@@ -42,11 +63,19 @@ ping -c2 ${gateway} > /dev/null # ping to gateway from Wi-Fi or from Ethernet
 # If the return code from ping ($?) is not 0 (meaning there was an error)
 if [ $? != 0 ]
 then
-    # Restart the wireless interface
-    ifdown --force wlan0
-    ifup wlan0
+    if [ "$strategy" == "reboot" ] 
+	then
+	echo "gateway $gateway is not responding. we are going to reboot in 2 minutes"
+	sudo shutdown -r 2  
+    fi
+    if [ "$strategy" == "reconnect" ]
+	then
+        # Restart the wireless interface
+    	ifdown --force wlan0
+	ifup wlan0
 	sleep 5
 	ifup wlan0
+    fi
 fi
 ping -I ${wlan} -c2 ${gateway} > /dev/null
 date
