@@ -21,7 +21,7 @@ ping -q -c5 192.168.114.200  > /dev/null
 		current_temperature=$(wget -qO- 192.168.114.200/last_temp.csv | cut -f2 -d"," | cut -f1 -d".")
 	else
 		curl wttr.in | head -4 | tail -1 > t		
-		current_temperature=$(more t | sed 's/\x1B\[[0-9;]\+[A-Za-z]//g'  | cut -f3 -d".")
+		current_temperature=$(more t | sed 's/\x1B\[[0-9;]\+[A-Za-z]//g'  | cut -f3 -d"." | tr -d " " | cut -c1-2)
 		echo "Going from weather"
 	fi
 	
