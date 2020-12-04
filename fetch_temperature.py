@@ -12,6 +12,15 @@ import socket
 from termcolor import colored
 from pathlib import Path
 
+logname='/home/pi/temperature.py.log'
+
+logging.basicConfig(filename=logname,
+                            filemode='a',
+                            format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                            datefmt='%H:%M:%S',
+                            level=logging.DEBUG)
+
+
 download_timeout=300
 
 thisIsGateway=False
