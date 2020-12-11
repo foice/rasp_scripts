@@ -13,6 +13,15 @@ import socket
 from termcolor import colored
 from pathlib import Path
 
+logname='/home/pi/temperature.py.log'
+
+logging.basicConfig(filename=logname,
+                            filemode='a',
+                            format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                            datefmt='%H:%M:%S',
+                            level=logging.DEBUG)
+
+
 download_timeout=300
 
 thisIsGateway=False
@@ -67,14 +76,16 @@ if thisIsGateway:
 			IP=IP[0]
 			mac=arp[ arp["hostname"]==hostName ]['mac'].unique()
 			mac=mac[0]
-			long_hostname=hosts[ hosts["mac"]==mac ]['long_hostname'].unique()[0]
-			print('IP: '+IP," (",mac,":"+long_hostname+")")
-			url="http://"+IP+"/temp.csv"
-			file_name=long_hostname+"_"+IP+".csv"
-			print('URL:',url)
-			print('file:',file_name)
-			url2filename(url,file_name)
-
+			try:
+				long_hostname=hosts[ hosts["mac"]==mac ]['long_hostname'].unique()[0]
+				print('IP: '+IP," (",mac,":"+long_hostname+")")
+				url="http://"+IP+"/temp.csv"
+				file_name=long_hostname+"_"+IP+".csv"
+				print('URL:',url)
+				print('file:',file_name)
+				url2filename(url,file_name)
+			except IndexError:
+				pass 
 else:
 	os.system(' sudo iwlist wlan0 scan | grep ESSID | grep @ | cut -f2 -d"@"   > .ips ')
 	ips=pd.read_csv('.ips',sep='"',names=["ip"],index_col=False )["ip"].to_list()
