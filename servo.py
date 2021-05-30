@@ -12,6 +12,7 @@ parser.add_argument("-y", "--ypos", default=0, type=int, help="y position")
 parser.add_argument("-c", "--center", default=90, type=int, help="center position")
 parser.add_argument("-s", "--span", default=20, type=int, help="span of the scan")
 parser.add_argument("-n", "--steps", default=3, type=int, help="span of the scan")
+parser.add_argument("-p", "--path", default="/home/pi/servo_images/",  help="span of the scan")
 args = parser.parse_args()
 
 cli_x=args.xpos
@@ -20,6 +21,8 @@ cli_y=args.ypos
 center=args.center
 span=args.span
 steps=args.steps
+
+path=args.path
 
 #Set function to calculate percent from angle
 def angle_to_percent (angle) :
@@ -81,7 +84,7 @@ try:
 
 			camera.start_preview()
 			time.sleep(1)
-			camera.capture('/home/pi/servo_images/image_'+str(x)+'_'+str(y)+'.jpg')
+			camera.capture(path+'image_'+str(x)+'_'+str(y)+'.jpg')
 			camera.stop_preview()
 except KeyboardInterrupt:
     pass
