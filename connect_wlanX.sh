@@ -7,8 +7,10 @@ while getopts ":i:c:s:" opt; do
     c) config_file="$OPTARG"
     ;;
     s) suffix="$OPTARG"
+    ;; 
+    h) echo "usage bash ~/rasp_scripts/connect_wlanX.sh -i wlan0 -s 6"
     ;;
-    \?) echo "Invalid option -$OPTARG" >&2
+    \?) echo "availavble options are i:string c:string s:int ; Invalid option -$OPTARG" >&2
     ;;
   esac
 done
@@ -83,10 +85,22 @@ sleep 4
 ping -c2 ${gateway} > /dev/null # ping to gateway from Wi-Fi or from Ethernet
 # ping -I ${wlan} -c2 ${gateway} > /dev/null # only ping through Wi-Fi
 
+pingresult=$?
 # If the return code from ping ($?) is not 0 (meaning there was an error)
-if [ $? != 0 ]
+#if [ $? != 0 ]
+if [ $pingresult != 0 ]
 then
 	echo "could not ping $gateway"
 else
 	echo "$gateway is in reach"
 fi
+let tries=0
+while  [  $pingresult != 0  -a    $tries -le 10    ]
+do
+	let tries=tries+1
+	ping -c2 ${gateway} > /dev/null # ping to gateway from Wi-Fi or from Ethernet
+	pingresult=$?
+	echo `date` " -" $tries "-> " "$pingresult"
+	sleep 4
+done
+
