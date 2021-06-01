@@ -104,3 +104,5 @@ do
 	sleep 4
 done
 
+echo "leaving wifi script"
+
