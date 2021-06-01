@@ -1,5 +1,8 @@
 #!/bin/bash
-
+#host=192.168.114.200
+subnet=6
+host=192.168.$subnet.1
+sl=10
 temp=30
 if [ ! -z "$1" ]
 then
@@ -8,17 +11,27 @@ fi
 
 echo "Will keep T=$temp °C"
 
+
+
 while [ 1 -ge 0 ]
 do
  
+~/rasp_scripts/connect_wlanX.sh -i wlan0 -s $subnet 
 # -q quiet
 # -c nb of pings to perform
-ping -q -c5 192.168.114.200  > /dev/null
+ping -q -c5 $host  > /dev/null
  
 	if [ $? -eq 0 ]
 	then
-		echo "Host is reachable"
-		current_temperature=$(wget -qO- 192.168.114.200/last_temp.csv | cut -f2 -d"," | cut -f1 -d".")
+		echo "Host is reachable, sleeping $sl"
+		sleep $sl
+		url="$host"/last_temp.csv
+		echo "URL $url"
+		wget -d --tries=4 --read-timeout=3 -O "last" "$host"/last_temp.csv 
+		#curl -L -C - -o "last" $url  #"$host"/last_temp.csv
+		#lynx -source $url > last  
+		current_temperature=$(cat last | cut -f2 -d"," | cut -f1 -d".")
+		echo "Temperature from $host : $current_temperature"
 	else
 		#trying to read call-up log
 		lastlog=`stat -c %Y /home/pi/temperature.log`
