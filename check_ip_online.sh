@@ -6,8 +6,8 @@ ping -c2 ${gateway} > /dev/null # ping to gateway from Wi-Fi or from Ethernet
 # If the return code from ping ($?) is not 0 (meaning there was an error)
 if [ $? != 0 ]
 then
-	echo 0 > "$gateway"
+	echo "{ \"online\": 0}" > "$gateway"
 else
-	echo 1 > "$gateway"
+	echo "{ \"online\": 1}" > "$gateway"
 
 fi
