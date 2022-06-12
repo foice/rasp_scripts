@@ -5,6 +5,7 @@ import time
 from picamera import PiCamera
 import numpy as np
 import argparse
+import datetime
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-x", "--xpos", default=0, type=int, help="x position")
@@ -13,6 +14,7 @@ parser.add_argument("-c", "--center", default=90, type=int, help="center positio
 parser.add_argument("-s", "--span", default=20, type=int, help="span of the scan")
 parser.add_argument("-n", "--steps", default=3, type=int, help="span of the scan")
 parser.add_argument("-p", "--path", default="/home/pi/servo_images/",  help="span of the scan")
+parser.add_argument("-d", "--date", default=False, type=bool,  help="add date to the string filename")
 args = parser.parse_args()
 
 cli_x=args.xpos
@@ -23,6 +25,11 @@ span=args.span
 steps=args.steps
 
 path=args.path
+
+date=args.date
+if date:
+	dt_date = datetime.datetime.now()
+
 
 #Set function to calculate percent from angle
 def angle_to_percent (angle) :
@@ -84,7 +91,9 @@ try:
 
 			camera.start_preview()
 			time.sleep(1)
-			camera.capture(path+'image_'+str(x)+'_'+str(y)+'.jpg')
+			if date:
+				datestr=dt_date.strftime("%Y%m%d-%H%M")
+			camera.capture(path+'image_'+str(x)+'_'+str(y)+datestr+'.jpg')
 			camera.stop_preview()
 except KeyboardInterrupt:
     pass
