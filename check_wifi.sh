@@ -71,10 +71,10 @@ then
     if [ "$strategy" == "reconnect" ]
 	then
         # Restart the wireless interface
-    	ifdown --force wlan0
-	ifup wlan0
+    	ifdown --force $wlan
+	ifup $wlan
 	sleep 5
-	ifup wlan0
+	ifup $wlan
     fi
 fi
 ping -I ${wlan} -c2 ${gateway} > /dev/null
