@@ -54,9 +54,16 @@ do
 				current_temperature=`less /home/pi/temperature.log | grep Appending | tail -1 | cut -f2 -d":" | cut -f2 -d","` # | cut -f1 -d"."`	
 				echo "Temperature from callup: $current_temperature ($age seconds ago)"
 			else
-				curl wttr.in | head -4 | tail -1 > t		
-				current_temperature=$(more t | sed 's/\x1B\[[0-9;]\+[A-Za-z]//g'  | cut -f3 -d"." | tr -d " " | cut -c1-2)
-				echo "Going from weather: $current_temperature"
+				curl --max-time 15 wttr.in | head -4 | tail -1 > t		
+				bytes=`stat -c %s t`
+				if [ $bytesize -gt 0 ]
+				then
+					current_temperature=$(more t | sed 's/\x1B\[[0-9;]\+[A-Za-z]//g'  | cut -f3 -d"." | tr -d " " | cut -c1-2)
+					echo "Going from weather: $current_temperature"
+				else
+					echo "No reading available ... assuming temperature is 30 degrees"
+					current_temperature=30
+				fi
 			fi
 		fi
 	fi	
