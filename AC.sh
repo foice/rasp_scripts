@@ -13,6 +13,47 @@ echo "Will keep T=$temp °C"
 
 
 
+
+
+isnum() { awk -v a="$1" 'BEGIN {print (a == a + 0)}'; }
+
+
+#echo test of number $(isnum "23.6")
+
+get_temperaature_from_zigbee() {
+ # try to get tempearture from HomeAssistant Logs
+        filetemperature="/home/homeassistant/.homeassistant/temperature_desk.csv"
+        lastlog=`stat -c %Y $filetemperature`
+        now=`date +%s`
+        let age=$now-$lastlog
+        echo "File age is $age seconds"
+        if [ $age -lt 2400 ]  #40 minutes
+        then
+                current_temperature=$(tail -1 /home/homeassistant/.homeassistant/temperature_desk.csv | cut -f2 -d",")
+                echo "Temperature from $filetemperature : $current_temperature"
+	else
+		echo "file is too old (age grater than 2400 seconds)"
+	fi
+	#outout
+	local res=$(isnum "$current_temperature") 
+        if [ "$res" == "1" ] ; then
+		echo $current_temperature 'is a number'
+		zigbee_temperature=$current_temperature
+	else
+		echo $current_temperature 'is not a number'
+	fi
+}
+
+
+get_temperaature_from_zigbee;
+
+if [ -n "$zigbee_temperature" ]; then
+    echo "Zigbee available"
+else
+    echo "Zigbee not available"
+fi
+
+
 while [ 1 -ge 0 ]
 do
 	# try to get tempearture from HomeAssistant Logs
@@ -25,8 +66,13 @@ do
 	then
 		current_temperature=$(tail -1 /home/homeassistant/.homeassistant/temperature_desk.csv | cut -f2 -d",")		
 		echo "Temperature from $filetemperature : $current_temperature"
+		if isnum_Case "$current_temperature"; then
+            		echo $current_temperature 'is a number'
+		else
+            		echo $current_temperature 'is not a number'
+		fi
 	else
-		# try to get temperature from WLAN direct connection to the ESP8266 
+		echo "try to get temperature from WLAN direct connection to the ESP8266" 
 		~/rasp_scripts/connect_wlanX.sh -i wlan0 -s $subnet 
 		# -q quiet
 		# -c nb of pings to perform
