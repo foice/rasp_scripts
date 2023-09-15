@@ -95,7 +95,7 @@ else
 	echo "$gateway is in reach"
 fi
 let tries=0
-while  [  $pingresult != 0  -a    $tries -le 10    ]
+while  [  $pingresult != 0  -a    $tries -le 4    ]
 do
 	let tries=tries+1
 	ping -c2 ${gateway} > /dev/null # ping to gateway from Wi-Fi or from Ethernet
