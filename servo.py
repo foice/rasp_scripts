@@ -95,7 +95,9 @@ try:
 				datestr=dt_date.strftime("%Y%m%d-%H%M")
 			else:
 				datestr=''
-			camera.capture(path+'image_'+str(x)+'_'+str(y)+datestr+'.jpg')
+			filename=path+'image_'+str(x)+'_'+str(y)+datestr+'.jpg'
+			print(filename)
+			camera.capture(filename)
 			camera.stop_preview()
 except KeyboardInterrupt:
     pass
