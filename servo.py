@@ -93,6 +93,8 @@ try:
 			time.sleep(1)
 			if date:
 				datestr=dt_date.strftime("%Y%m%d-%H%M")
+			else:
+				datestr=''
 			camera.capture(path+'image_'+str(x)+'_'+str(y)+datestr+'.jpg')
 			camera.stop_preview()
 except KeyboardInterrupt:
