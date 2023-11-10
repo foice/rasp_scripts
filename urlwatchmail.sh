@@ -19,5 +19,5 @@ then
 	cd
 else
 	echo "Changes found in some webapge!"
-	echo -e "$header" "\n\n" "$body" | /usr/bin/msmtp --file=/home/pi/.msmtprc -a fisica -- $(cat /home/pi/rasp_scripts/urlwatch.recipient )
+	echo -e "$header" "\n\n" "$body" | /usr/bin/msmtp --file=/home/pi/.msmtprc -a default -- $(cat /home/pi/rasp_scripts/urlwatch.recipient )
 fi
