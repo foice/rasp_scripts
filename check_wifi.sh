@@ -57,27 +57,33 @@ echo
 
 # Only send two pings, sending output to /dev/null as we don't want to fill logs on our sd card. 
 # If you want to force ping from your wlan0 you can connect next line and uncomment second line 
-ping -c2 ${gateway} > /dev/null # ping to gateway from Wi-Fi or from Ethernet
+/bin/ping -c3 ${gateway} # > /dev/null # ping to gateway from Wi-Fi or from Ethernet
 # ping -I ${wlan} -c2 ${gateway} > /dev/null # only ping through Wi-Fi 
 
 # If the return code from ping ($?) is not 0 (meaning there was an error)
-if [ $? != 0 ]
-then
-    if [ "$strategy" == "reboot" ] 
+result=$?
+echo "$result was returned from pingi (0=success, >0 failure)"
+
+#if [[ $? != 0 ]]
+if (( $result > 0 ))
 	then
-	echo "gateway $gateway is not responding. we are going to reboot in 2 minutes"
-	sudo shutdown -r 2  
-    fi
-    if [ "$strategy" == "reconnect" ]
-	then
-        # Restart the wireless interface
-    	ifdown --force wlan0
-	ifup wlan0
-	sleep 5
-	ifup wlan0
-    fi
+		echo "There was a problem to reach the gateway ${gateway}"
+		echo "We will $strategy"
+		if [[ "$strategy" == "reboot" ]] 
+			then
+			echo "gateway $gateway is not responding. we are going to reboot in 2 minutes"
+			sudo shutdown -r 2  
+		fi
+		if [[ "$strategy" == "reconnect" ]]
+			then
+			# Restart the wireless interface
+			ifdown --force $wlan
+			ifup $wlan
+			sleep 5
+			ifup $wlan
+	        fi
 fi
-ping -I ${wlan} -c2 ${gateway} > /dev/null
+/bin/ping -I ${wlan} -c2 ${gateway} > /dev/null
 date
 echo 
 echo " - Auto Reconnect Wi-Fi Status for $wlan Script Ended ";
