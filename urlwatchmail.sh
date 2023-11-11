@@ -1,8 +1,9 @@
 #!/bin/bash
 body=$(/usr/local/bin/urlwatch)
-
-header='To:Roberto Franceschini <roberto.franceschini@uniroma3.it>\nFrom:Roberto Franceschini <franceschini@fis.uniroma3.it>\nSubject: Monitored Web Pages have been updated [urlwatch]\n'
-
+recipient=$(cat /home/pi/rasp_scripts/urlwatch.recipient )
+sender=$(cat /home/pi/rasp_scripts/urlwatch.sender )
+header="To:$recipient\\nFrom:$sender\\nSubject: Monitored Web Pages have been updated [urlwatch]\\n"
+echo -e "$header"
 
 if [ -z "$body" ]
 then
@@ -19,5 +20,7 @@ then
 	cd
 else
 	echo "Changes found in some webapge!"
-	echo -e "$header" "\n\n" "$body" | /usr/bin/msmtp --file=/home/pi/.msmtprc -a default -- $(cat /home/pi/rasp_scripts/urlwatch.recipient )
+	echo cat "$body" >> /home/pi/urlwatch_content.log
+	echo "Will email $recipient from $sender"
+	echo -e "$header" "\n\n" "$body" | /usr/bin/msmtp --file=/home/pi/.msmtprc -a default -- "$recipient"
 fi
